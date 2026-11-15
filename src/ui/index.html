@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreeCloud Console · 多云免费额度控制台</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body data-state="loading">
+
+<div id="lock" class="lock" hidden data-state="locked" data-lock-reason="session-invalid">
+  <div class="lock-card">
+    <div class="lock-icon" aria-hidden="true">&#128274;</div>
+    <h2 id="lock-title">会话已结束</h2>
+    <p id="lock-body">长时间无操作或会话失效后，服务端已销毁会话。请重新打开应用完成重新认证；后台 DDNS 与中转服务仍由守护进程拉起，不会中断。</p>
+    <p class="muted">这是真正的安全锁定，不是屏幕遮蔽。旧密钥与旧会话已全部失效，不能在本窗口继续操作。</p>
+    <button id="lock-exit" class="btn btn-danger" type="button">退出并重新打开应用</button>
+  </div>
+</div>
+
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">FC</span>
+      <span class="brand-text">FreeCloud<br><small>Console</small></span>
+    </div>
+    <nav class="nav" aria-label="主导航">
+      <button class="nav-item is-active" type="button" data-nav="overview">总览</button>
+      <button class="nav-item" type="button" data-nav="providers">云厂商凭据</button>
+      <button class="nav-item" type="button" data-nav="ddns">DDNS 记录</button>
+      <button class="nav-item" type="button" data-nav="ai">AI 中转</button>
+      <button class="nav-item" type="button" data-nav="settings">设置与安全</button>
+    </nav>
+    <div class="side-foot">
+      <div id="side-port" class="muted">端口：—</div>
+      <div class="muted">仅本机 · 用户态运行</div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div>
+        <h1 id="page-title">总览</h1>
+        <p id="page-sub" class="muted">多云免费额度、DDNS 与 AI 中转的一处收口</p>
+      </div>
+      <div class="badges" aria-label="安全状态">
+        <span id="badge-vault" class="badge" data-field="security-vault" data-state="loading">凭据加密：检测中</span>
+        <span id="badge-loopback" class="badge" data-field="security-loopback" data-state="loading">监听范围：检测中</span>
+        <span id="badge-localkey" class="badge" data-field="security-localkey" data-state="loading">本机中转密钥：检测中</span>
+      </div>
+    </header>
+
+    <main id="content">
+      <section class="page is-active" data-page="overview" data-state="loading">
+        <div class="grid-3">
+          <div class="card"><h3>DDNS 引擎</h3><p id="ov-ddns" class="stat">—</p><p id="ov-ddns-sub" class="muted">—</p></div>
+          <div class="card"><h3>AI 网关</h3><p id="ov-ai" class="stat">—</p><p id="ov-ai-sub" class="muted">—</p></div>
+          <div class="card"><h3>守护进程</h3><p id="ov-daemon" class="stat">—</p><p id="ov-daemon-sub" class="muted">—</p></div>
+        </div>
+        <div class="card">
+          <h3>云厂商连接</h3>
+          <div id="ov-providers" data-empty-reason="no-providers" class="list">加载中…</div>
+        </div>
+        <div class="card">
+          <h3>免费额度用量</h3>
+          <div id="ov-quota" data-empty-reason="no-upstreams" class="list">加载中…</div>
+        </div>
+        <div class="grid-2">
+          <div class="card"><h3>最近事件</h3><div id="ov-events" class="log"></div></div>
+          <div class="card"><h3>最近审计（只读）</h3><div id="ov-audit" class="log"></div></div>
+        </div>
+      </section>
+
+      <section class="page" data-page="providers" data-state="loading">
+        <div class="card">
+          <h3>新增云厂商凭据</h3>
+          <p class="muted">凭据由 Windows DPAPI（当前用户）加密托管，只写入本机，永不回显、永不导出。请使用最小权限的子账号密钥。</p>
+          <form id="form-provider" class="form">
+            <label>厂商
+              <select id="p-vendor" name="vendor" required></select>
+            </label>
+            <label>显示名称<input id="p-name" name="displayName" type="text" placeholder="例如：Cloudflare 个人账号" autocomplete="off"></label>
+            <div id="p-fields" class="form-fields"></div>
+            <label>备注（可选）<input id="p-note" name="note" type="text" autocomplete="off"></label>
+            <button class="btn btn-primary" type="submit">保存凭据</button>
+          </form>
+        </div>
+        <div class="card">
+          <h3>已配置凭据</h3>
+          <div id="p-list" data-empty-reason="no-providers" class="list">加载中…</div>
+        </div>
+      </section>
+
+      <section class="page" data-page="ddns" data-state="loading">
+        <div class="card">
+          <h3>当前公网 IP</h3>
+          <p id="ddns-ip" class="stat">—</p>
+          <p id="ddns-msg" class="muted">—</p>
+          <button id="ddns-sync" class="btn" type="button">立即检测并同步</button>
+        </div>
+        <div class="card">
+          <h3>新增解析记录</h3>
+          <form id="form-record" class="form">
+            <label>域名<input id="r-domain" type="text" placeholder="example.com" required autocomplete="off"></label>
+            <label>主机记录<input id="r-name" type="text" value="@" required autocomplete="off"></label>
+            <label>类型<select id="r-type"><option value="A">A (IPv4)</option><option value="AAAA">AAAA (IPv6)</option></select></label>
+            <label>TTL<input id="r-ttl" type="number" value="60" min="30" max="86400"></label>
+            <label>DNS 厂商<select id="r-vendor"></select></label>
+            <label>凭据<select id="r-provider"></select></label>
+            <button class="btn btn-primary" type="submit">添加记录</button>
+          </form>
+          <p class="muted">不提供自定义 IP 或 Webhook 地址输入；上游端点一律由服务端白名单决定。</p>
+        </div>
+        <div class="card">
+          <h3>记录列表</h3>
+          <div id="r-list" data-empty-reason="no-records" class="list">加载中…</div>
+        </div>
+      </section>
+
+      <section class="page" data-page="ai" data-state="loading">
+        <div class="card card-accent">
+          <h3>本机中转密钥</h3>
+          <p id="lk-state" data-field="local-key" data-state="absent">状态：未生成（端点默认关闭）</p>
+          <p id="lk-meta" class="muted">指纹：—</p>
+          <div class="btn-row">
+            <button id="lk-generate" class="btn btn-primary" type="button" data-confirm-name="GENERATE_LOCAL_KEY">生成密钥</button>
+            <button id="lk-revoke" class="btn btn-danger" type="button" data-confirm-name="REVOKE_LOCAL_KEY">吊销密钥</button>
+          </div>
+          <div id="lk-once" class="once" hidden></div>
+          <p class="muted" data-field="local-key-example">调用示例：Authorization: Bearer &lt;本机中转密钥&gt;　（同时需 X-FCC-CSRF: 1）</p>
+          <p class="muted">密钥只显示一次，关闭即销毁；WebUI 不保存、不回显完整值，刷新后只显示指纹。</p>
+        </div>
+        <div class="card">
+          <h3>统一本地端点</h3>
+          <p><code id="ai-endpoint">—</code></p>
+          <p class="muted">OpenAI 兼容 /v1/chat/completions；仅监听 127.0.0.1，需 Bearer 本机中转密钥。</p>
+        </div>
+        <div class="card">
+          <h3>上游与优先级</h3>
+          <div id="ai-upstreams" data-empty-reason="no-upstreams" class="list">加载中…</div>
+          <p class="muted">故障转移仅限 5xx / 超时 / 不可达；额度到量一律停止并告警，不转移到其他上游。</p>
+        </div>
+        <div class="card">
+          <h3>新增上游</h3>
+          <form id="form-upstream" class="form">
+            <label>厂商<select id="u-vendor"></select></label>
+            <label>名称<input id="u-name" type="text" placeholder="例如：Workers AI 免费额度" autocomplete="off"></label>
+            <label>模型<input id="u-model" type="text" placeholder="例如：@cf/meta/llama-3.1-8b-instruct" autocomplete="off"></label>
+            <label>优先级<input id="u-priority" type="number" value="100" min="0" max="9999"></label>
+            <label>每日请求上限<input id="u-cap" type="number" value="1000" min="1"></label>
+            <label>凭据<select id="u-provider"></select></label>
+            <button class="btn btn-primary" type="submit">添加上游</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="page" data-page="settings" data-state="loading">
+        <div class="grid-2">
+          <div class="card">
+            <h3>运行设置</h3>
+            <form id="form-settings" class="form">
+              <label>DDNS 检测间隔（秒）<input id="s-interval" type="number" min="30" max="86400"></label>
+              <label>探测源最少一致数<input id="s-agree" type="number" min="1" max="4"></label>
+              <label>日志级别<select id="s-log"><option value="info">info</option><option value="warn">warn</option><option value="error">error</option></select></label>
+              <label class="check"><input id="s-autostart" type="checkbox"> 开机自启（用户态，无需管理员权限）</label>
+              <button class="btn btn-primary" type="submit">保存设置</button>
+            </form>
+          </div>
+          <div class="card">
+            <h3>安全状态</h3>
+            <dl class="dl">
+              <dt>凭据存储</dt><dd id="sec-store">—</dd>
+              <dt>监听地址</dt><dd id="sec-listen">—</dd>
+              <dt>常驻端口</dt><dd id="sec-port">—</dd>
+              <dt>异常外联</dt><dd id="sec-anomalies">—</dd>
+              <dt>本机中转密钥</dt><dd id="sec-key">—</dd>
+            </dl>
+          </div>
+        </div>
+        <div class="card">
+          <h3>配置导入 / 导出</h3>
+          <p class="muted">导出恒为脱敏配置（凭据字段固定为 ***），不含任何密钥；导入后需重新录入凭据。不提供明文凭据导出。</p>
+          <div class="btn-row">
+            <button id="cfg-export" class="btn" type="button">导出脱敏配置</button>
+            <button id="cfg-import" class="btn" type="button">从文本框导入</button>
+          </div>
+          <textarea id="cfg-text" rows="5" placeholder="粘贴脱敏配置 JSON" spellcheck="false"></textarea>
+        </div>
+        <div class="card">
+          <h3>审计记录</h3>
+          <div id="audit-list" class="log"></div>
+        </div>
+        <div class="card">
+          <h3>退出</h3>
+          <p class="muted">退出会销毁会话并结束应用。重新打开需再次运行 start.cmd，届时完成新的启动握手。</p>
+          <button id="btn-logout" class="btn btn-danger" type="button">退出应用</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden role="status"></div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "freecloud-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Win11 desktop console for multi-cloud free-tier DDNS and AI relay. Zero third-party dependencies.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/main.js",
+    "core": "node src/core.js",
+    "test": "node --test tests/*.test.js",
+    "selftest": "node src/main.js --selftest"
+  },
+  "license": "MIT"
+}
